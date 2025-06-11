@@ -6,11 +6,11 @@ from utils import Particle
 COLLISION_DISTANCE = 1
 MAX_ERROR = 50000
 
-W = 0.0108   # 权重常数 (auto-tuned)
-ALPHA = 1.1540  # 每个点重采样比占比例多的倍数 (auto-tuned)
-sigma_P = 0.0107  # 位置方差 (auto-tuned)
-sigma_T = 0.0086  # 角度方差 (auto-tuned)
-K = 3  # 采样点数量 (auto-tuned)
+W = 0.0176   # 权重常数 (auto-tuned)
+ALPHA = 1.4543  # 每个点重采样比占比例多的倍数 (auto-tuned)
+sigma_P = 0.1340  # 位置方差 (auto-tuned)
+sigma_T = 0.0308  # 角度方差 (auto-tuned)
+K = 9  # 采样点数量 (auto-tuned)
 ### 可以在这里写下一些你需要的变量和函数 ###
 
 
