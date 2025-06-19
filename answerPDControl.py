@@ -15,6 +15,8 @@ def calc_pd_force(target_pos, current_pos, current_vel, kp, kd):
     """
     force = np.zeros(2,)
     ### 你的代码 ###
-
+    position_error = target_pos - current_pos
+    velocity_error = -current_vel
+    force = kp * position_error + kd * velocity_error
     ### 你的代码 ###
     return force
