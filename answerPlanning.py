@@ -5,10 +5,10 @@ from simuScene import PlanningMap
 
 
 ### 定义一些你需要的变量和函数 ###
-STEP_DISTANCE = 0.6258         # RRT 每次扩展的步长 (auto-tuned)
+STEP_DISTANCE = 0.3028         # RRT 每次扩展的步长 (auto-tuned)
 TARGET_THREHOLD = 0.25      # 到达目标的距离阈值
-MAX_ITER = 4564             # RRT 的最大迭代次数 (auto-tuned)
-GOAL_BIAS = 0.2126             # RRT 采样时朝向目标的概率 (auto-tuned)
+MAX_ITER = 4010             # RRT 的最大迭代次数 (auto-tuned)
+GOAL_BIAS = 0.2431             # RRT 采样时朝向目标的概率 (auto-tuned)
 ### 定义一些你需要的变量和函数 ###
 
 
