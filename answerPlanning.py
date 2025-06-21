@@ -22,11 +22,14 @@ class RRT:
         
         # 其他需要的变量
         ### 你的代码 ###      
-
+        self.path = []  # 用于存储规划的路径
+        self.current_path_index = 0  # 当前目标路径点的索引
+        # 从 walls 计算地图边界，用于RRT采样
+        self.x_size = np.max(walls[:, 0]) + 1
+        self.y_size = np.max(walls[:, 1]) + 1
+        self.path_start_pos = None # 初始化变量
         ### 你的代码 ###
-        
-        # 如有必要，此行可删除
-        self.path = None
+ 
         
         
     def find_path(self, current_position, next_food):
@@ -39,10 +42,11 @@ class RRT:
         """
         
         ### 你的代码 ###      
-
+        self.path = self.build_bi_rrt(current_position, next_food)
+        # 判断是否找到了路径，索引设为0表示有效路径，-1表示无路径
+        self.current_path_index = 0 if self.path else -1
         ### 你的代码 ###
-        # 如有必要，此行可删除
-        self.path = self.build_tree(current_position, next_food)
+
         
         
     def get_target(self, current_position, current_velocity):
@@ -61,25 +65,98 @@ class RRT:
         """
         target_pose = np.zeros_like(current_position)
         ### 你的代码 ###
+        if not self.path or self.current_path_index == -1:
+            return current_position
         
+        current_target = self.path[self.current_path_index]
+        distance = np.linalg.norm(current_target - current_position)
+        
+        # 如果离当前目标点很近，则切换到路径中的下一个点
+        if distance < STEP_DISTANCE:
+            if self.current_path_index < len(self.path) - 1:
+                self.current_path_index += 1
+                
+        target_pose = self.path[self.current_path_index]
         ### 你的代码 ###
         return target_pose
         
     ### 以下是RRT中一些可能用到的函数框架，全部可以修改，当然你也可以自己实现 ###
-    def build_tree(self, start, goal):
+    def build_bi_rrt(self, start, goal):
         """
-        实现你的快速探索搜索树，输入为当前目标食物的编号，规划从 start 位置食物到 goal 位置的路径
-        返回一个包含坐标的列表，为这条路径上的pd targets
-        你可以调用find_nearest_point和connect_a_to_b两个函数
-        另外self.map的checkoccupy和checkline也可能会需要，可以参考simuScene.py中的PlanningMap类查看它们的用法
+        实现双向RRT算法
+        """
+        # 修正点：在开始规划前，将起点保存到实例变量中
+        self.path_start_pos = start
+
+        max_iter = 2500  # 双向RRT通常需要更少的迭代次数
+        
+        graph_start = [TreeNode(-1, start[0], start[1])]
+        graph_goal = [TreeNode(-1, goal[0], goal[1])]
+
+        for _ in range(max_iter):
+            # 1. 交替扩展两棵树
+            # 扩展从起点开始的树
+            path = self.extend_and_connect(graph_start, graph_goal, goal)
+            if path: return path
+
+            # 扩展从终点开始的树
+            path = self.extend_and_connect(graph_goal, graph_start, start)
+            if path: return path
+
+        return [] # 未找到路径
+
+    def extend_and_connect(self, tree_to_extend, other_tree, target):
+        """
+        扩展一棵树，并尝试连接到另一棵树
+        """
+        # 随机采样，带有目标偏向
+        if np.random.rand() < 0.1:
+            sample_point = target
+        else:
+            sample_point = np.random.rand(2) * np.array([self.x_size, self.y_size])
+
+        # 在待扩展树中找到最近的节点
+        nearest_idx, _ = self.find_nearest_point(sample_point, tree_to_extend)
+        nearest_node = tree_to_extend[nearest_idx]
+
+        # 从最近节点向采样点扩展一步
+        is_empty, new_point = self.connect_a_to_b(nearest_node.pos, sample_point)
+
+        if is_empty:
+            # 将新节点加入树中
+            new_node = TreeNode(nearest_idx, new_point[0], new_point[1])
+            tree_to_extend.append(new_node)
+
+            # 尝试连接到另一棵树
+            other_nearest_idx, _ = self.find_nearest_point(new_point, other_tree)
+            other_node = other_tree[other_nearest_idx]
+
+            # 检查新节点和另一棵树最近节点之间是否可直连
+            hit, _ = self.map.checkline(new_point.tolist(), other_node.pos.tolist())
+            if not hit:
+                # 连接成功，构建并返回完整路径
+                path1 = self.reconstruct_path(new_node, tree_to_extend)
+                path2 = self.reconstruct_path(other_node, other_tree)
+                
+                # 确保路径方向正确
+                if np.array_equal(tree_to_extend[0].pos, self.path_start_pos):
+                    path1.reverse() # path1是从叶子到根，需要翻转
+                    return path1 + path2
+                else:
+                    path2.reverse() # path2是从叶子到根，需要翻转
+                    return path2 + path1
+        return None
+
+    def reconstruct_path(self, leaf_node, graph):
+        """
+        从叶子节点回溯到根节点，构建部分路径
         """
         path = []
-        graph: List[TreeNode] = []
-        graph.append(TreeNode(-1, start[0], start[1]))
-        ### 你的代码 ###
-        
-        
-        ### 你的代码 ###
+        current_node = leaf_node
+        while current_node.parent_idx != -1:
+            path.append(current_node.pos)
+            current_node = graph[current_node.parent_idx]
+        path.append(current_node.pos)
         return path
 
     @staticmethod
@@ -93,9 +170,14 @@ class RRT:
         nearest_idx, nearest_distance 离目标位置距离最近节点的编号和距离
         """
         nearest_idx = -1
-        nearest_distance = 10000000.
+        nearest_distance = float('inf')
         ### 你的代码 ###
-
+        for i, node in enumerate(graph):
+            node_pos = node.pos
+            dist = np.linalg.norm(point - node_pos)
+            if dist < nearest_distance:
+                nearest_distance = dist
+                nearest_idx = i
         ### 你的代码 ###
         return nearest_idx, nearest_distance
     
@@ -111,6 +193,23 @@ class RRT:
         is_empty = False
         newpoint = np.zeros(2)
         ### 你的代码 ###
+        direction = point_b - point_a
+        dist = np.linalg.norm(direction)
 
+        if dist < 1e-6:
+            return False, point_a
+
+        unit_vector = direction / dist
+        
+        if dist < STEP_DISTANCE:
+            newpoint = point_b
+        else:
+            newpoint = point_a + unit_vector * STEP_DISTANCE
+
+        # checkline返回(是否碰撞, 碰撞点)，所以我们需要检查第一个布尔值是否为False
+        # docstring提示输入为list，进行转换
+        hit, _ = self.map.checkline(point_a.tolist(), newpoint.tolist())
+        if not hit:
+            is_empty = True
         ### 你的代码 ###
         return is_empty, newpoint
