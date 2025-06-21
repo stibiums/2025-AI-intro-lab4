@@ -5,10 +5,10 @@ from simuScene import PlanningMap
 
 
 ### 定义一些你需要的变量和函数 ###
-STEP_DISTANCE = 0.7163         # RRT 每次扩展的步长 (auto-tuned)
+STEP_DISTANCE = 0.7092         # RRT 每次扩展的步长 (auto-tuned)
 TARGET_THREHOLD = 0.25      # 到达目标的距离阈值
-MAX_ITER = 4412             # RRT 的最大迭代次数 (auto-tuned)
-GOAL_BIAS = 0.0968             # RRT 采样时朝向目标的概率 (auto-tuned)
+MAX_ITER = 4000             # RRT 的最大迭代次数 (fixed for tuning)
+GOAL_BIAS = 0.2175             # RRT 采样时朝向目标的概率 (auto-tuned)
 ### 定义一些你需要的变量和函数 ###
 
 
@@ -131,7 +131,14 @@ class RRT:
             other_node = other_tree[other_nearest_idx]
 
             # 检查新节点和另一棵树最近节点之间是否可直连
-            hit, _ = self.map.checkline(new_point.tolist(), other_node.pos.tolist())
+            # --- FIX for AssertionError: r.LengthSquared() > 0.0f ---
+            # 如果新点和目标连接点几乎重合，直接认为连接成功，避免无效的RayCast
+            if np.allclose(new_point, other_node.pos, atol=1e-6):
+                hit = False
+            else:
+                hit, _ = self.map.checkline(new_point.tolist(), other_node.pos.tolist())
+            # --- END FIX ---
+            
             if not hit:
                 # 连接成功，构建并返回完整路径
                 path1 = self.reconstruct_path(new_node, tree_to_extend)
