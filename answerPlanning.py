@@ -5,9 +5,10 @@ from simuScene import PlanningMap
 
 
 ### 定义一些你需要的变量和函数 ###
-STEP_DISTANCE = 0.5
-TARGET_THREHOLD = 0.25
-
+STEP_DISTANCE = 0.5223         # RRT 每次扩展的步长 (auto-tuned)
+TARGET_THREHOLD = 0.25      # 到达目标的距离阈值
+MAX_ITER = 4036             # RRT 的最大迭代次数 (auto-tuned)
+GOAL_BIAS = 0.2879             # RRT 采样时朝向目标的概率 (auto-tuned)
 ### 定义一些你需要的变量和函数 ###
 
 
@@ -87,13 +88,11 @@ class RRT:
         """
         # 修正点：在开始规划前，将起点保存到实例变量中
         self.path_start_pos = start
-
-        max_iter = 2500  # 双向RRT通常需要更少的迭代次数
         
         graph_start = [TreeNode(-1, start[0], start[1])]
         graph_goal = [TreeNode(-1, goal[0], goal[1])]
 
-        for _ in range(max_iter):
+        for _ in range(MAX_ITER):
             # 1. 交替扩展两棵树
             # 扩展从起点开始的树
             path = self.extend_and_connect(graph_start, graph_goal, goal)
@@ -110,7 +109,7 @@ class RRT:
         扩展一棵树，并尝试连接到另一棵树
         """
         # 随机采样，带有目标偏向
-        if np.random.rand() < 0.1:
+        if np.random.rand() < GOAL_BIAS:
             sample_point = target
         else:
             sample_point = np.random.rand(2) * np.array([self.x_size, self.y_size])
